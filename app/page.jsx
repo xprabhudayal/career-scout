@@ -2,40 +2,80 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Mic, MicOff, Sun, Moon, Mail, LogOut, Phone, MessageCircle } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 
-// Mock authentication hook (you'll replace this with actual OAuth implementation)
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Supabase authentication hook
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  const login = (provider) => {
-    // Mock login - replace with actual OAuth implementation
-    const mockUser = {
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      provider: provider
-    };
-    setUser(mockUser);
-    setIsAuthenticated(true);
-    localStorage.setItem('user', JSON.stringify(mockUser));
-  };
-
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('user');
-  };
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
-    }
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error);
+      } else if (session?.user) {
+        setUser({
+          id: session.user.id,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          email: session.user.email,
+          avatar: session.user.user_metadata?.avatar_url,
+          provider: session.user.app_metadata?.provider
+        });
+        setIsAuthenticated(true);
+      }
+      setLoading(false);
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+            email: session.user.email,
+            avatar: session.user.user_metadata?.avatar_url,
+            provider: session.user.app_metadata?.provider
+          });
+          setIsAuthenticated(true);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  return { user, isAuthenticated, login, logout };
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  return { user, isAuthenticated, loading, logout, supabase };
 };
 
 // Mock Vapi class (you'll replace this with actual Vapi implementation)
@@ -104,8 +144,9 @@ class MockVapi {
   }
 }
 
+//Dashboard page
 const CareerScout = () => {
-  const { user, isAuthenticated, login, logout } = useAuth();
+  const { user, isAuthenticated, loading, logout, supabase } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -271,36 +312,54 @@ const CareerScout = () => {
     vapiRef.current?.say('I\'ve sent the job details to your email. Check your inbox!');
   };
 
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className={`max-w-md w-full mx-4 p-8 rounded-2xl shadow-xl ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
           <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Phone className="w-8 h-8 text-white" />
+            </div>
             <h1 className="text-3xl font-bold mb-2">Career Scout</h1>
-            <p className="text-gray-500">Your Voice-Powered Job Search Assistant</p>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Your Voice-Powered Job Search Assistant
+            </p>
           </div>
           
           <div className="space-y-4">
-            <button
-              onClick={() => login('google')}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <span>Continue with Google</span>
-            </button>
-            
-            <button
-              onClick={() => login('github')}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <span>Continue with GitHub</span>
-            </button>
-            
-            <button
-              onClick={() => login('microsoft')}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <span>Continue with Microsoft</span>
-            </button>
+            <Auth
+              supabaseClient={supabase}
+              appearance={{ 
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: '#2563eb',
+                      brandAccent: '#1d4ed8',
+                    }
+                  }
+                }
+              }}
+              providers={['google']}
+              redirectTo={window.location.origin}
+              onlyThirdPartyProviders
+              theme={darkMode ? 'dark' : 'light'}
+            />
+          </div>
+          
+          <div className="mt-6 text-center">
+            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              By signing in, you agree to our Terms of Service and Privacy Policy
+            </p>
           </div>
         </div>
       </div>
@@ -321,7 +380,16 @@ const CareerScout = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              <span className="text-sm">Welcome, {user.name}</span>
+              <div className="flex items-center gap-2">
+                {user.avatar && (
+                  <img 
+                    src={user.avatar} 
+                    alt="Profile" 
+                    className="w-8 h-8 rounded-full"
+                  />
+                )}
+                <span className="text-sm">Welcome, {user.name}</span>
+              </div>
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
