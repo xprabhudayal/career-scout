@@ -1,8 +1,6 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
-// import { Play, Square, Mic, MicOff, Mail, Phone, MessageCircle, Sun, Moon, LogOut } from 'lucide-react';
-// import { ThemeSupa } from '@supabase/auth-ui-shared';
 import Vapi from '@vapi-ai/web';
 import Navbar from '@/components/Navbar';
 import { AuthenticationScreen } from '@/components/AuthenticationScreen';
@@ -11,15 +9,35 @@ import { CallControls } from '@/components/CallControls';
 import { VoiceAgent } from '@/components/VoiceAgent';
 import { UserProfile } from '@/components/UserProfile';
 import { ChatMessages } from '@/components/ChatMessages';
+import OnboardingPage from '@/components/OnboardingPage';
 
-// Initialize Supabase client
-<supabase />
 
-// Supabase authentication hook
+// Updated useAuth hook with onboarding check
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [onboardingStatus, setOnboardingStatus] = useState(null);
+
+  const checkOnboardingStatus = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('onboarded')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console. error('Error checking onboarding status:', error);
+        return false;
+      }
+
+      return data?.onboarded || false;
+    } catch (error) {
+      console.error('Onboarding check error:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     // Get initial session
@@ -28,14 +46,20 @@ const useAuth = () => {
       if (error) {
         console.error('Error getting session:', error);
       } else if (session?.user) {
-        setUser({
+        const userData = {
           id: session.user.id,
           name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
           email: session.user.email,
           avatar: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face&auto=format',
           provider: session.user.app_metadata?.provider
-        });
+        };
+        
+        setUser(userData);
         setIsAuthenticated(true);
+        
+        // Check onboarding status
+        const isOnboarded = await checkOnboardingStatus(session.user.id);
+        setOnboardingStatus(isOnboarded);
       }
       setLoading(false);
     };
@@ -46,17 +70,24 @@ const useAuth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
-          setUser({
+          const userData = {
             id: session.user.id,
             name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
             email: session.user.email,
             avatar: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face&auto=format',
             provider: session.user.app_metadata?.provider
-          });
+          };
+          
+          setUser(userData);
           setIsAuthenticated(true);
+          
+          // Check onboarding status
+          const isOnboarded = await checkOnboardingStatus(session.user.id);
+          setOnboardingStatus(isOnboarded);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAuthenticated(false);
+          setOnboardingStatus(null);
         }
         setLoading(false);
       }
@@ -78,15 +109,24 @@ const useAuth = () => {
     }
   };
 
-  return { user, isAuthenticated, loading, logout, supabase };
-};
+  const updateOnboardingStatus = (status) => {
+    setOnboardingStatus(status);
+  };
 
-// for handling oauth via supabase, currently supports only google
-<AuthenticationScreen />
+  return { 
+    user, 
+    isAuthenticated, 
+    loading, 
+    logout, 
+    onboardingStatus,
+    updateOnboardingStatus,
+    supabase 
+  };
+};
 
 // Main logic of dashboard containing vapi & auth
 const CareerScout = () => {
-  const { user, isAuthenticated, loading, logout, supabase } = useAuth();
+  const { user, isAuthenticated, loading, logout, onboardingStatus, updateOnboardingStatus } = useAuth();
   const [darkMode, setDarkMode] = useState(true);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -94,24 +134,58 @@ const CareerScout = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [userPreferences, setUserPreferences] = useState(null);
 
   const vapiRef = useRef(null);
 
-  // Initialize Vapi
+  // Load user preferences for personalized job search
   useEffect(() => {
-    if (isAuthenticated && user) {
+    const loadUserPreferences = async () => {
+      if (isAuthenticated && user && onboardingStatus) {
+        try {
+          const { data, error } = await supabase
+            .from('user_preferences')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (error) {
+            console.error('Error loading preferences:', error);
+          } else {
+            setUserPreferences(data);
+          }
+        } catch (error) {
+          console.error('Load preferences error:', error);
+        }
+      }
+    };
+
+    loadUserPreferences();
+  }, [isAuthenticated, user, onboardingStatus]);
+
+  // Initialize Vapi with personalized assistant
+  useEffect(() => {
+    if (isAuthenticated && user && onboardingStatus) {
       vapiRef.current = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
 
       vapiRef.current.on('call-start', () => {
         setIsCallActive(true);
-        addMessage('system', 'Call started - Career Scout is ready to help!');
+        const welcomeMessage = userPreferences 
+          ? `Welcome back, ${user.name}! I'm ready to help you find ${userPreferences.role} positions in ${userPreferences.location}.`
+          : `Welcome ${user.name}! I'm your AI Career Scout, ready to help you find your dream job.`;
+        
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          type: 'assistant',
+          content: welcomeMessage,
+          timestamp: new Date()
+        }]);
       });
 
       vapiRef.current.on('call-end', () => {
         setIsCallActive(false);
         setIsSpeaking(false);
         setVolumeLevel(0);
-        addMessage('system', 'Call ended');
       });
 
       vapiRef.current.on('speech-start', () => {
@@ -127,234 +201,284 @@ const CareerScout = () => {
       });
 
       vapiRef.current.on('message', (message) => {
-        console.log('Received message:', message);
-
-        if (message.type === 'transcript') {
-          addMessage(message.role, message.transcript || message.content);
-
-          // Handle job search requests from user
-          if (message.role === 'user' &&
-            (message.transcript?.toLowerCase().includes('job') ||
-              message.transcript?.toLowerCase().includes('search') ||
-              message.transcript?.toLowerCase().includes('find'))) {
-            handleJobSearch(message.transcript);
+        if (message.type === 'transcript' && message.transcriptType === 'final') {
+          if (message.role === 'user') {
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              type: 'user',
+              content: message.transcript,
+              timestamp: new Date()
+            }]);
+          } else if (message.role === 'assistant') {
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              type: 'assistant',
+              content: message.transcript,
+              timestamp: new Date()
+            }]);
           }
         }
 
-        // Handle function calls from assistant
-        if (message.type === 'function-call' && message.function_call?.name === 'job-search') {
-          const args = JSON.parse(message.function_call.arguments);
-          handleJobSearchFromFunction(args);
+        // Handle function calls for job search
+        if (message.type === 'function-call' && message.functionCall?.name === 'searchJobs') {
+          handleJobSearch(message.functionCall.parameters);
         }
       });
 
       vapiRef.current.on('error', (error) => {
         console.error('Vapi error:', error);
-        addMessage('system', 'Connection error occurred. Please try again.');
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          type: 'system',
+          content: 'Sorry, I encountered an error. Please try again.',
+          timestamp: new Date()
+        }]);
       });
     }
 
     return () => {
-      if (vapiRef.current && isCallActive) {
+      if (vapiRef.current) {
         vapiRef.current.stop();
       }
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, onboardingStatus, userPreferences]);
 
-  const addMessage = (role, content) => {
-    const message = {
-      id: Date.now(),
-      role,
-      content,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMessages(prev => [...prev, message]);
+  // Handle job search function calls
+  const handleJobSearch = async (parameters) => {
+    setIsLoading(true);
+    try {
+      const searchParams = {
+        query: parameters.query || userPreferences?.role || '',
+        location: parameters.location || userPreferences?.location || '',
+        experienceLevel: parameters.experienceLevel || userPreferences?.experience_level || '',
+        industry: parameters.industry || userPreferences?.industry || '',
+        limit: parameters.limit || 10
+      };
+
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(searchParams),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const jobsMessage = `Found ${data.jobs.length} jobs matching your criteria. Here are the top results:\n\n${data.jobs.slice(0, 3).map(job => 
+          `• ${job.title} at ${job.company}\n  Location: ${job.location}\n  ${job.description.slice(0, 100)}...`
+        ).join('\n\n')}`;
+
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          type: 'assistant',
+          content: jobsMessage,
+          timestamp: new Date(),
+          jobs: data.jobs
+        }]);
+
+        // Send response back to Vapi
+        if (vapiRef.current) {
+          vapiRef.current.send({
+            type: 'add-message',
+            message: {
+              role: 'system',
+              content: `Job search completed. Found ${data.jobs.length} jobs. Summarize the top 3 results for the user.`
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Job search error:', error);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'system',
+        content: 'Sorry, I had trouble searching for jobs. Please try again.',
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  
+  // Create personalized assistant configuration
+  const createAssistantConfig = () => {
+    const basePrompt = `You are Career Scout, an AI career advisor helping users find their perfect job. You are friendly, professional, and knowledgeable about the job market.`;
+    
+    const personalizedPrompt = userPreferences 
+      ? `${basePrompt}
 
+User Profile:
+- Name: ${user.name}
+- Looking for: ${userPreferences.role} positions
+- Location: ${userPreferences.location}
+- Experience Level: ${userPreferences.experience_level}
+- Industry: ${userPreferences.industry}
+- Skills: ${userPreferences.skills || 'Not specified'}
+
+Use this information to provide personalized job search assistance. When searching for jobs, prioritize positions that match their preferences.`
+      : basePrompt;
+
+    return {
+      model: {
+        provider: "openai",
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: personalizedPrompt
+          }
+        ],
+        functions: [
+          {
+            name: "searchJobs",
+            description: "Search for job opportunities based on user criteria",
+            parameters: {
+              type: "object",
+              properties: {
+                query: {
+                  type: "string",
+                  description: "Job title or keywords to search for"
+                },
+                location: {
+                  type: "string",
+                  description: "Location to search in"
+                },
+                experienceLevel: {
+                  type: "string",
+                  description: "Experience level (entry, mid, senior)"
+                },
+                industry: {
+                  type: "string",
+                  description: "Industry or field"
+                },
+                limit: {
+                  type: "number",
+                  description: "Number of jobs to return (max 20)"
+                }
+              },
+              required: ["query"]
+            }
+          }
+        ]
+      },
+      voice: {
+        provider: "11labs",
+        voiceId: "pNInz6obpgDQGcFmaJgB", // Professional, friendly voice
+      },
+      firstMessage: userPreferences 
+        ? `Hi ${user.name}! I'm ready to help you find ${userPreferences.role} opportunities in ${userPreferences.location}. What would you like to explore today?`
+        : `Hi ${user.name}! I'm your AI Career Scout. I can help you search for jobs, get career advice, and more. How can I assist you today?`
+    };
+  };
+
+  // Start voice call
   const startCall = async () => {
     if (vapiRef.current && !isCallActive) {
       try {
-        const assistant = {
-          model: {
-            provider: "openai",
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content: `You are Career Scout, an enthusiastic and knowledgeable voice AI agent designed to help users discover job opportunities that match their skills and preferences. Your tone is upbeat, informative, and encouraging, like a passionate career advisor who's excited to guide users toward their dream job.
-                The user's name is ${user.name}. Always greet them by name and be helpful with job searches.
-                
-                **Available Job Categories**: Accounting, Accounting and Finance, Account Management, Account Management/Customer Success, Administration and Office, Advertising and Marketing, Animal Care, Arts, Business Operations, Cleaning and Facilities, Computer and IT, Construction, Corporate, Customer Service, Data and Analytics, Data Science, Design, Design and UX, Editor, Education, Energy Generation and Mining, Entertainment and Travel Services, Farming and Outdoors, Food and Hospitality Services, Healthcare, HR, Human Resources and Recruitment, Installation, Maintenance, and Repairs, IT, Law, Legal Services, Management, Manufacturing and Warehouse, Marketing, Mechanic, Media, PR, and Communications, Mental Health, Nurses, Office Administration, Personal Care and Services, Physical Assistant, Product, Product Management, Project Management, Protective Services, Public Relations, Real Estate, Recruiting, Retail, Sales, Science and Engineering, Social Services, Software Engineer, Software Engineering, Sports, Fitness, and Recreation, Transportation and Logistics, UX, Videography, Writer, Writing and Editing.
-                
-                **Available Experience Levels**: Entry Level, Mid Level, Senior Level, management, Internship.
-                
-                **Abilities**:
-                - Ask users about their job preferences, such as industry, role, location, experience level, and work type (e.g., remote, in-person).
-                - Based on their input, suggest relevant job titles or roles from the predefined categories listed above.
-                - When using the job-search function, ALWAYS use the exact category names from the available list above.
-                - Provide a brief description of the suggested roles to help users understand what they entail.
-                - Offer encouragement and motivation throughout the process, making the job search feel exciting and manageable.
-                
-                **Behavior Guidelines**:
-                - Ask one question at a time to gather user preferences, keeping it simple and engaging.
-                - When a user mentions a job interest, map it to the closest matching category from the available list.
-                - After gathering preferences, use the job-search function with the exact category name.
-                - Encourage users to explore further: "Which of these roles sounds most exciting to you? Or do you want to refine your search?"
-                - Always maintain a positive and supportive tone, making the job search feel like an adventure.
-                
-                **Constraints**:
-                - Focus on voice interactions; no visual outputs needed.
-                - MUST use only the predefined categories and experience levels listed above when calling the job-search function.
-                - Avoid giving specific company names or real-time job listings.
-                - Stay within the scope of job discovery and suggestion; don't delve into application guidance or interview prep.`
-              }
-            ],
-            tools: [
-              {
-                type: "function",
-                function: {
-                  name: "job-search",
-                  description: "Search for job opportunities based on user preferences",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      category: {
-                        type: "string",
-                        description: "Job category or role type"
-                      },
-                      level: {
-                        type: "string",
-                        description: "Experience level (Entry Level, Mid Level, Senior Level)"
-                      },
-                      location: {
-                        type: "string",
-                        description: "Job location or 'Remote'"
-                      },
-                      company: {
-                        type: "string",
-                        description: "Specific company name (optional)"
-                      }
-                    },
-                    required: ["category"]
-                  }
-                }
-              }
-            ],
-            maxTokens: 50,
-            temperature: 0.1
-          },
-          voice: {
-            provider: "vapi",
-            voiceId: "Harry"
-          },
-          transcriber: {
-            provider: "google",
-            model: "gemini-2.0-flash",
-            language: "English"
-          },
-          firstMessage: `Hey there, ${user.name}! I'm Career Scout, here to help you find your perfect job. Let's get started!`
-        };
-
-        await vapiRef.current.start(assistant);
+        await vapiRef.current.start(createAssistantConfig());
       } catch (error) {
-        console.error('Error starting call:', error);
-        addMessage('system', 'Failed to start call. Please check your connection.');
+        console.error('Failed to start call:', error);
       }
     }
   };
 
-  const stopCall = () => {
+  // End voice call
+  const endCall = () => {
     if (vapiRef.current && isCallActive) {
       vapiRef.current.stop();
     }
   };
 
+  // Toggle mute
   const toggleMute = () => {
     if (vapiRef.current) {
-      const newMutedState = !isMuted;
-      vapiRef.current.setMuted(newMutedState);
-      setIsMuted(newMutedState);
+      vapiRef.current.setMuted(!isMuted);
+      setIsMuted(!isMuted);
     }
   };
 
-  // Show loading spinner while checking authentication
+  // Loading screen
   if (loading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
       </div>
     );
   }
 
+  // Authentication screen
   if (!isAuthenticated) {
-    return <AuthenticationScreen darkMode={darkMode} supabase={supabase} />;
+    return <AuthenticationScreen darkMode={darkMode} />;
   }
 
+  // Onboarding screen
+  if (onboardingStatus === false) {
+    return (
+      <OnboardingPage 
+        user={user}
+        onComplete={() => updateOnboardingStatus(true)}
+        supabase={supabase}
+      />
+    );
+  }
+
+  // Main dashboard
   return (
-    // <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-    //   <Navbar darkMode={darkMode} setDarkMode={setDarkMode} user={user} logout={logout} />
-
-    //   {/* Main Content */}
-    //   <div className="pt-20 h-screen flex">
-    //     <ChatMessages messages={messages} darkMode={darkMode} />
-
-    //     {/* Right Side */}
-    //     <div className="w-1/2 flex flex-col h-full">
-    //       <VoiceAgent darkMode={darkMode} isSpeaking={isSpeaking} />
-          
-    //       <div className="flex-1 flex flex-col items-center justify-center p-8">
-    //         <UserProfile user={user} darkMode={darkMode} volumeLevel={volumeLevel} />
-    //         <CallControls 
-    //           isCallActive={isCallActive}
-    //           isMuted={isMuted}
-    //           startCall={startCall}
-    //           stopCall={stopCall}
-    //           toggleMute={toggleMute}
-    //           darkMode={darkMode}
-    //         />
-    //       </div>
-    //     </div>
-    //   </div>
-    // </div>
-    <div className={`min-h-screen p-4 transition-colors ${
-      darkMode ? 'bg-gray-950' : 'bg-gray-50'
+    <div className={`min-h-screen transition-colors duration-300 ${
+      darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
     }`}>
-    <Navbar darkMode={darkMode} setDarkMode={setDarkMode} user={user} logout={logout} />
-      <div className="pt-20">
-      {/* Top spacing for navbar */}
-        {/* Main Bento Grid Container */}
-        <div className="max-w-7xl mx-auto h-[calc(100vh-7rem)] grid grid-cols-2 gap-4">
-          {/* Left side - Chat Messages (50% width) */}
-          <div className="col-span-1">
-            <ChatMessages messages={messages} darkMode={darkMode} />
+      <Navbar 
+        user={user}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        logout={logout}
+      />
+      
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
+          {/* Chat Messages */}
+          <div className="lg:col-span-2">
+            <ChatMessages 
+              messages={messages}
+              isLoading={isLoading}
+              darkMode={darkMode}
+            />
           </div>
           
-          {/* Right side - User and Assistant (50% width, split vertically) */}
-          <div className="col-span-1 grid grid-rows-2 gap-4">
-            {/* Top right - Assistant (25% of screen height) */}
-            <div className="row-span-1">
-              <VoiceAgent darkMode={darkMode} isSpeaking={isSpeaking} />
-            </div>
-
-            {/* Bottom right - User (25% of screen height) */}
-            <div className="row-span-1">
-              <UserProfile 
-                user={user} 
-                darkMode={darkMode} 
-                volumeLevel={volumeLevel}
-                isCallActive={isCallActive}
+          {/* Right Sidebar */}
+          <div className="space-y-6">
+            {/* Voice Agent */}
+            <VoiceAgent 
+              isCallActive={isCallActive}
+              isSpeaking={isSpeaking}
+              volumeLevel={volumeLevel}
+              onStartCall={startCall}
+              onEndCall={endCall}
+              darkMode={darkMode}
+            />
+            
+            {/* Call Controls */}
+            {isCallActive && (
+              <CallControls 
                 isMuted={isMuted}
-                startCall={startCall}
-                stopCall={stopCall}
-                toggleMute={toggleMute}
+                onToggleMute={toggleMute}
+                onEndCall={endCall}
+                darkMode={darkMode}
               />
-            </div>
+            )}
+            
+            {/* User Profile */}
+            <UserProfile 
+              user={user}
+              preferences={userPreferences}
+              darkMode={darkMode}
+            />
           </div>
         </div>
-      </div>
-      </div>
+      </main>
+    </div>
   );
 };
 
