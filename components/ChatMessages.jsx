@@ -1,5 +1,7 @@
 'use client'
+import { MessageCircle } from "lucide-react";
 import { useRef, useEffect } from "react";
+
 
 export const ChatMessages = ({ messages, darkMode }) => {
   const messagesEndRef = useRef(null);
@@ -14,11 +16,12 @@ export const ChatMessages = ({ messages, darkMode }) => {
         ? 'bg-gradient-to-br from-gray-800 to-gray-900'
         : 'bg-gradient-to-br from-gray-100 to-gray-200'
     }`}>
-      <p className={`text-2xl font-light mb-4 flex justify-center ${
-        darkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        Conversations
-      </p>
+      <div className="flex items-center gap-3 mb-4">
+            <MessageCircle className="w-5 h-5 text-blue-500" />
+            <h1 className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              Conversations
+            </h1>
+          </div>
       <div className="flex-1 overflow-y-auto space-y-3 pb-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>

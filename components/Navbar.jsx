@@ -7,13 +7,13 @@ import { FeedbackFish } from '@feedback-fish/react'
 
 const Navbar = ({ darkMode, setDarkMode, user, logout }) => {
     return (
-        <nav className={`fixed top-4 left-4 right-4 z-50 px-6 py-3 rounded-2xl border backdrop-blur-md transition-colors ${darkMode
+        <nav className={`fixed top-1 left-4 right-4 z-50 px-6 py-3 rounded-2xl border backdrop-blur-md transition-colors ${darkMode
                 ? 'bg-gray-800/80 border-gray-700'
             : 'bg-white/80 border-gray-200'
             }`}>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Telescope className={`w-7 h-7 ${darkMode ? 'text-white' : 'text-gray-900'
+                    <Telescope className={`w-7 h-7 text-blue-500 ${darkMode ? 'text-white' : 'text-gray-900'
                         }`}/>
                     <span className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-gray-900'
                         }`}>
