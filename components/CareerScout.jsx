@@ -549,7 +549,7 @@ Remember: You're not just providing data - you're being a strategic career partn
                 type: "mcp",
                 name: "jobAgentMCP",
                 server: {
-                  url: "https://localhost:3000/api/mcp/actions"
+                  url: "https://career-scout.vercel.app/api/mcp/actions"
                 }
               }
             ],
