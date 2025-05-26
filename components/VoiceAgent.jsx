@@ -23,10 +23,10 @@ export const VoiceAgent = ({ darkMode, isSpeaking }) => {
           }`} style={{ top: '10%', left: '10%' }}></div>
         )}
       </div>
-      <span className={`text-xl font-light${
+      <span className={`text-xl font-light ${
         darkMode ? 'text-white' : 'text-gray-900'
       }`}>
-        Your Personal Assistant
+        Career Scout (AI)
       </span>
     </div>
   );
