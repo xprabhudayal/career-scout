@@ -135,6 +135,488 @@ const CareerScout = () => {
 
   const vapiRef = useRef(null);
 
+  // Handler functions for tool calls
+  const handleSearchJobs = async (args) => {
+    try {
+      addMessage('system', `Searching for jobs with query: ${args.query}`);
+      setIsLoading(true);
+      
+      // Extract the toolCallId from the message
+      let toolCallId = null;
+      if (vapiRef.current && vapiRef.current.lastMessage && vapiRef.current.lastMessage.type === 'function-call') {
+        toolCallId = vapiRef.current.lastMessage.function_call?.id;
+      }
+
+      // If we don't have a toolCallId from VAPI directly, try to extract it from the message object
+      if (!toolCallId && vapiRef.current && vapiRef.current.lastMessage && 
+          vapiRef.current.lastMessage.toolCallList && vapiRef.current.lastMessage.toolCallList.length > 0) {
+        toolCallId = vapiRef.current.lastMessage.toolCallList[0].id;
+      }
+
+      // Fallback to a generated ID if needed
+      if (!toolCallId) {
+        toolCallId = `search_jobs_${Date.now()}`;
+      }
+
+      const response = await fetch('/api/mcp/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now().toString(),
+          method: "tools/call",
+          params: {
+            name: "search-jobs",
+            arguments: args
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'Error searching jobs');
+      }
+
+      // Parse the result content
+      const content = result.result?.content?.[0]?.text;
+      let jobData = content ? JSON.parse(content) : null;
+      
+      if (jobData && jobData.success) {
+        addMessage('assistant', `Found ${jobData.data.total_jobs} jobs matching "${args.query}"`);
+
+        // Format the response according to VAPI documentation
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify(jobData)
+          }]
+        };
+
+        return vapiResponse;
+      } else {
+        addMessage('assistant', 'No jobs found matching your criteria.');
+
+        // Even for empty results, send properly formatted response
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify({ 
+              success: false, 
+              message: "No jobs found matching your criteria.",
+              data: { total_jobs: 0, jobs: [] } 
+            })
+          }]
+        };
+
+        return vapiResponse;
+      }
+    } catch (error) {
+      console.error('Error in handleSearchJobs:', error);
+      addMessage('system', 'Error searching for jobs: ' + error.message);
+      
+      // Error response format
+      return { 
+        results: [{
+          toolCallId: toolCallId || `search_jobs_${Date.now()}`,
+          result: JSON.stringify({ 
+            success: false, 
+            error: error.message, 
+            data: null 
+          })
+        }]
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleJobDetails = async (args) => {
+    try {
+      addMessage('system', `Getting details for job ID: ${args.job_id}`);
+      setIsLoading(true);
+      
+      // Extract the toolCallId from the message
+      let toolCallId = null;
+      if (vapiRef.current && vapiRef.current.lastMessage && vapiRef.current.lastMessage.type === 'function-call') {
+        toolCallId = vapiRef.current.lastMessage.function_call?.id;
+      }
+
+      // If we don't have a toolCallId from VAPI directly, try to extract it from the message object
+      if (!toolCallId && vapiRef.current && vapiRef.current.lastMessage && 
+          vapiRef.current.lastMessage.toolCallList && vapiRef.current.lastMessage.toolCallList.length > 0) {
+        toolCallId = vapiRef.current.lastMessage.toolCallList[0].id;
+      }
+
+      // Fallback to a generated ID if needed
+      if (!toolCallId) {
+        toolCallId = `job_details_${Date.now()}`;
+      }
+      
+      const response = await fetch('/api/mcp/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now().toString(),
+          method: "tools/call",
+          params: {
+            name: "job-details",
+            arguments: args
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'Error fetching job details');
+      }
+
+      const content = result.result?.content?.[0]?.text;
+      let jobDetails = content ? JSON.parse(content) : null;
+      
+      if (jobDetails && jobDetails.success) {
+        addMessage('assistant', `Here are the details for the job at ${jobDetails.data.company}`);
+        
+        // Format the response according to VAPI documentation
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify(jobDetails)
+          }]
+        };
+        
+        return vapiResponse;
+      } else {
+        addMessage('assistant', 'Could not find details for this job.');
+        
+        // Even for empty results, send properly formatted response
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify({ 
+              success: false, 
+              message: "Could not find details for this job.",
+              data: null 
+            })
+          }]
+        };
+        
+        return vapiResponse;
+      }
+    } catch (error) {
+      console.error('Error in handleJobDetails:', error);
+      addMessage('system', 'Error getting job details: ' + error.message);
+      
+      // Error response format
+      return { 
+        results: [{
+          toolCallId: toolCallId || `job_details_${Date.now()}`,
+          result: JSON.stringify({ 
+            success: false, 
+            error: error.message, 
+            data: null 
+          })
+        }]
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSalaryEstimate = async (args) => {
+    try {
+      addMessage('system', `Getting salary estimates for ${args.job_title} in ${args.location}`);
+      setIsLoading(true);
+      
+      // Extract the toolCallId from the message
+      let toolCallId = null;
+      if (vapiRef.current && vapiRef.current.lastMessage && vapiRef.current.lastMessage.type === 'function-call') {
+        toolCallId = vapiRef.current.lastMessage.function_call?.id;
+      }
+
+      // If we don't have a toolCallId from VAPI directly, try to extract it from the message object
+      if (!toolCallId && vapiRef.current && vapiRef.current.lastMessage && 
+          vapiRef.current.lastMessage.toolCallList && vapiRef.current.lastMessage.toolCallList.length > 0) {
+        toolCallId = vapiRef.current.lastMessage.toolCallList[0].id;
+      }
+
+      // Fallback to a generated ID if needed
+      if (!toolCallId) {
+        toolCallId = `salary_estimate_${Date.now()}`;
+      }
+      
+      const response = await fetch('/api/mcp/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now().toString(),
+          method: "tools/call",
+          params: {
+            name: "estimated-salary",
+            arguments: args
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'Error getting salary estimates');
+      }
+
+      const content = result.result?.content?.[0]?.text;
+      let salaryData = content ? JSON.parse(content) : null;
+      
+      if (salaryData && salaryData.success) {
+        addMessage('assistant', `Salary estimate found for ${args.job_title} in ${args.location}`);
+        
+        // Format the response according to VAPI documentation
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify(salaryData)
+          }]
+        };
+        
+        return vapiResponse;
+      } else {
+        addMessage('assistant', 'Could not find salary estimates for this role and location.');
+        
+        // Even for empty results, send properly formatted response
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify({ 
+              success: false, 
+              message: "Could not find salary estimates for this role and location.",
+              data: null 
+            })
+          }]
+        };
+        
+        return vapiResponse;
+      }
+    } catch (error) {
+      console.error('Error in handleSalaryEstimate:', error);
+      addMessage('system', 'Error getting salary estimates: ' + error.message);
+      
+      // Error response format
+      return { 
+        results: [{
+          toolCallId: toolCallId || `salary_estimate_${Date.now()}`,
+          result: JSON.stringify({ 
+            success: false, 
+            error: error.message, 
+            data: null 
+          })
+        }]
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCompanySalary = async (args) => {
+    try {
+      addMessage('system', `Getting salary info for ${args.job_title} at ${args.company}`);
+      setIsLoading(true);
+      
+      // Extract the toolCallId from the message
+      let toolCallId = null;
+      if (vapiRef.current && vapiRef.current.lastMessage && vapiRef.current.lastMessage.type === 'function-call') {
+        toolCallId = vapiRef.current.lastMessage.function_call?.id;
+      }
+
+      // If we don't have a toolCallId from VAPI directly, try to extract it from the message object
+      if (!toolCallId && vapiRef.current && vapiRef.current.lastMessage && 
+          vapiRef.current.lastMessage.toolCallList && vapiRef.current.lastMessage.toolCallList.length > 0) {
+        toolCallId = vapiRef.current.lastMessage.toolCallList[0].id;
+      }
+
+      // Fallback to a generated ID if needed
+      if (!toolCallId) {
+        toolCallId = `company_salary_${Date.now()}`;
+      }
+      
+      const response = await fetch('/api/mcp/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now().toString(),
+          method: "tools/call",
+          params: {
+            name: "company-job-salary",
+            arguments: args
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'Error getting company salary data');
+      }
+
+      const content = result.result?.content?.[0]?.text;
+      let salaryData = content ? JSON.parse(content) : null;
+      
+      if (salaryData && salaryData.success) {
+        addMessage('assistant', `Salary information found for ${args.job_title} at ${args.company}`);
+        
+        // Format the response according to VAPI documentation
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify(salaryData)
+          }]
+        };
+        
+        return vapiResponse;
+      } else {
+        addMessage('assistant', 'Could not find salary information for this company and role.');
+        
+        // Even for empty results, send properly formatted response
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify({ 
+              success: false, 
+              message: "Could not find salary information for this company and role.",
+              data: null 
+            })
+          }]
+        };
+        
+        return vapiResponse;
+      }
+    } catch (error) {
+      console.error('Error in handleCompanySalary:', error);
+      addMessage('system', 'Error getting company salary data: ' + error.message);
+      
+      // Error response format
+      return { 
+        results: [{
+          toolCallId: toolCallId || `company_salary_${Date.now()}`,
+          result: JSON.stringify({ 
+            success: false, 
+            error: error.message, 
+            data: null 
+          })
+        }]
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMarketInsights = async (args) => {
+    try {
+      addMessage('system', `Getting market insights for: ${args.q}`);
+      setIsLoading(true);
+      
+      // Extract the toolCallId from the message
+      let toolCallId = null;
+      if (vapiRef.current && vapiRef.current.lastMessage && vapiRef.current.lastMessage.type === 'function-call') {
+        toolCallId = vapiRef.current.lastMessage.function_call?.id;
+      }
+
+      // If we don't have a toolCallId from VAPI directly, try to extract it from the message object
+      if (!toolCallId && vapiRef.current && vapiRef.current.lastMessage && 
+          vapiRef.current.lastMessage.toolCallList && vapiRef.current.lastMessage.toolCallList.length > 0) {
+        toolCallId = vapiRef.current.lastMessage.toolCallList[0].id;
+      }
+
+      // Fallback to a generated ID if needed
+      if (!toolCallId) {
+        toolCallId = `market_insights_${Date.now()}`;
+      }
+      
+      const response = await fetch('/api/mcp/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now().toString(),
+          method: "tools/call",
+          params: {
+            name: "market-insight-tool",
+            arguments: args
+          }
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        throw new Error(result.error.message || 'Error getting market insights');
+      }
+
+      const content = result.result?.content?.[0]?.text;
+      let insightsData = content ? JSON.parse(content) : null;
+      
+      if (insightsData && insightsData.success) {
+        addMessage('assistant', `Found market insights for ${args.q}`);
+        
+        // Format the response according to VAPI documentation
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify(insightsData)
+          }]
+        };
+        
+        return vapiResponse;
+      } else {
+        addMessage('assistant', 'Could not find market insights for this query.');
+        
+        // Even for empty results, send properly formatted response
+        const vapiResponse = {
+          results: [{
+            toolCallId: toolCallId,
+            result: JSON.stringify({ 
+              success: false, 
+              message: "Could not find market insights for this query.",
+              data: null 
+            })
+          }]
+        };
+        
+        return vapiResponse;
+      }
+    } catch (error) {
+      console.error('Error in handleMarketInsights:', error);
+      addMessage('system', 'Error getting market insights: ' + error.message);
+      
+      // Error response format
+      return { 
+        results: [{
+          toolCallId: toolCallId || `market_insights_${Date.now()}`,
+          result: JSON.stringify({ 
+            success: false, 
+            error: error.message, 
+            data: null 
+          })
+        }]
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Initialize Vapi
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -166,35 +648,87 @@ const CareerScout = () => {
 
       vapiRef.current.on('message', async (message) => {
         console.log('Received message:', message);
+        
+        // Store the last message for access to toolCallId
+        vapiRef.current.lastMessage = message;
 
         if (message.type === 'transcript') {
           addMessage(message.role, message.transcript || message.content);
-
-          if (message.role === 'user' &&
-            (message.transcript?.toLowerCase().includes('job') ||
-              message.transcript?.toLowerCase().includes('search') ||
-              message.transcript?.toLowerCase().includes('find'))) {
-            // Handled by job-search tool
-          } else if (message.transcript?.toLowerCase().includes('email') ||
-            message.transcript?.toLowerCase().includes('send')) {
-            // Handled by send-jobs-email tool
-          } else if (message.transcript?.toLowerCase().includes('market') ||
-            message.transcript?.toLowerCase().includes('trend') ||
-            message.transcript?.toLowerCase().includes('hot')) {
-            // Handled by market-insights tool
-          }
         }
-
-        if (message.type === 'function-call') {
-          if (message.function_call?.name === 'job-search') {
-            const args = JSON.parse(message.function_call.arguments);
-            await handleJobSearch(args);
-          } else if (message.function_call?.name === 'send-jobs-email') {
-            const args = JSON.parse(message.function_call.arguments);
-            await handleSendJobsEmail(args);
-          } else if (message.function_call?.name === 'market-insights') {
-            const args = JSON.parse(message.function_call.arguments);
-            await handleMarketInsights(args);
+        
+        // Handle function calls or tool-calls
+        if (message.type === 'function-call' || message.type === 'tool-calls') {
+          // Extract from function-call format
+          const functionName = message.function_call?.name;
+          let args = {};
+          let toolCallId = message.function_call?.id;
+          
+          if (functionName) {
+            try {
+              args = JSON.parse(message.function_call.arguments || '{}');
+            } catch (e) {
+              console.error('Error parsing function arguments:', e);
+              args = {};
+            }
+          }
+          
+          // Extract from tool-calls format (new format)
+          if (message.type === 'tool-calls' && message.toolCallList && message.toolCallList.length > 0) {
+            const toolCall = message.toolCallList[0]; // Get the first tool call
+            toolCallId = toolCall.id;
+            const toolName = toolCall.name;
+            args = toolCall.arguments || {};
+            
+            if (toolName) {
+              switch (toolName) {
+                case 'search-jobs':
+                  await handleSearchJobs(args);
+                  break;
+                case 'job-details':
+                  await handleJobDetails(args);
+                  break;
+                case 'estimated-salary':
+                  await handleSalaryEstimate(args);
+                  break;
+                case 'company-job-salary':
+                  await handleCompanySalary(args);
+                  break;
+                case 'market-insight-tool':
+                  await handleMarketInsights(args);
+                  break;
+                default:
+                  console.warn(`Unknown tool call: ${toolName}`);
+              }
+              return; // Already handled via tool-calls format
+            }
+          }
+          
+          // Handle legacy function-call format if not already handled
+          if (functionName) {
+            try {
+              switch (functionName) {
+                case 'search-jobs':
+                  await handleSearchJobs(args);
+                  break;
+                case 'job-details':
+                  await handleJobDetails(args);
+                  break;
+                case 'estimated-salary':
+                  await handleSalaryEstimate(args);
+                  break;
+                case 'company-job-salary':
+                  await handleCompanySalary(args);
+                  break;
+                case 'market-insight-tool':
+                  await handleMarketInsights(args);
+                  break;
+                default:
+                  console.warn(`Unknown function call: ${functionName}`);
+              }
+            } catch (error) {
+              console.error(`Error handling function call ${functionName}:`, error);
+              addMessage('system', `Error processing ${functionName}: ${error.message}`);
+            }
           }
         }
       });
@@ -222,235 +756,12 @@ const CareerScout = () => {
     setMessages(prev => [...prev, message]);
   };
 
-  const handleJobSearch = async (args) => {
-    setIsLoading(true);
-    try {
-      // Try JSearch API first
-      let response;
-      try {
-        const queryParams = new URLSearchParams();
-        if (args.category) queryParams.append('query', `${args.category}${args.location ? ` in ${args.location}` : ''}`);
-        if (args.level) queryParams.append('level', args.level);
-
-        response = await axios.get(
-          `https://zylalabs.com/api/2526/jsearch+api/2516/search?${queryParams.toString()}`,
-          {
-            headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_JSEARCH_API_KEY}` },
-            timeout: 10000
-          }
-        );
-
-        const jobs = cleanJobData(response.data.data || [], 'jsearch');
-        if (jobs.length > 0) {
-          addMessage('system', `Found ${jobs.length} jobs! Here are the top 3: ${jobs.slice(0, 3).map(j => j.title).join(', ')}...`);
-          return jobs;
-        }
-      } catch (error) {
-        console.error('JSearch API error:', error);
-        addMessage('system', 'JSearch API limit reached or unavailable, trying backup...');
-      }
-
-      // Fallback to Adzuna API
-      const queryParams = new URLSearchParams();
-      if (args.category) queryParams.append('what', args.category);
-      if (args.location) queryParams.append('where', args.location);
-      if (args.level) queryParams.append('contract_type', args.level.toLowerCase());
-      queryParams.append('results_per_page', '20');
-      queryParams.append('app_id', process.env.NEXT_PUBLIC_ADZUNA_APP_ID);
-      queryParams.append('app_key', process.env.NEXT_PUBLIC_ADZUNA_APP_KEY);
-
-      response = await axios.get(
-        `https://api.adzuna.com/v1/api/jobs/us/search/1?${queryParams.toString()}`,
-        { timeout: 10000 }
-      );
-
-      const jobs = cleanJobData(response.data.results || [], 'adzuna');
-      if (jobs.length > 0) {
-        addMessage('system', `Found ${jobs.length} jobs! Here are the top 3: ${jobs.slice(0, 3).map(j => j.title).join(', ')}...`);
-        return jobs;
-      } else {
-        addMessage('system', 'No jobs found matching the criteria.');
-        return [];
-      }
-    } catch (error) {
-      console.error('Job search error:', error);
-      addMessage('system', 'Error searching for jobs. Please try again.');
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSendJobsEmail = async ({ jobs, userEmail }) => {
-    setIsLoading(true);
-    try {
-      const email = userEmail || user.email;
-      if (!email) {
-        addMessage('system', 'No email address found. Please provide an email.');
-        return;
-      }
-
-      const response = await axios.post(
-        'https://api.resend.com/emails',
-        {
-          from: 'CareerScout <jobs@yourapp.com>',
-          to: email,
-          subject: `Found ${jobs.length} jobs for you!`,
-          html: generateJobEmailTemplate(jobs)
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
-
-      addMessage('system', `Sent ${jobs.length} jobs to ${email}!`);
-    } catch (error) {
-      console.error('Email send error:', error);
-      addMessage('system', 'Failed to send email. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleMarketInsights = async ({ query }) => {
-    setIsLoading(true);
-    try {
-      const response = await axios.post(
-        'https://serper.dev/api/v1/search',
-        { q: `${query} job market trends` },
-        {
-          headers: {
-            'X-API-KEY': process.env.NEXT_PUBLIC_SERPER_API_KEY,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
-
-      const insights = response.data.organic?.slice(0, 3).map(item => ({
-        title: item.title,
-        snippet: item.snippet,
-        link: item.link
-      })) || [];
-
-      if (insights.length > 0) {
-        addMessage('system', `Current trends for ${query}: ${insights[0].snippet}...`);
-      } else {
-        addMessage('system', `No market insights found for ${query}. Try a different query.`);
-      }
-    } catch (error) {
-      console.error('Market insights error:', error);
-      addMessage('system', 'Error fetching market insights. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const startCall = async () => {
     if (vapiRef.current && !isCallActive) {
       try {
-        // const assistant = {
-        //   model: {
-        //     provider: "openai",
-        //     model: "gpt-4o-mini",
-        //     messages: [
-        //       {
-        //         role: "system",
-        //         content: `You are Career Scout, an enthusiastic voice AI agent designed to help users discover job opportunities and market trends. Your tone is upbeat, informative, and encouraging, like a passionate career advisor. The user's name is ${user.name}. Always greet them by their firstname and be helpful with job searches and insights.
-
-
-        //         **Abilities**:
-        //         - Use the job-search tool to find jobs based on category, location, level, or company.
-        //         - Use the send-jobs-email tool to email job results to the user's email from Supabase.
-        //         - Use the market-insights tool to provide job market trends using the Serper API.
-        //         - Ask one question at a time to gather preferences, keeping it simple and engaging.
-        //         - Map user inputs to the closest matching category from the list above.
-        //         - Provide brief job role descriptions and encouragement.
-        //         - For market insights, summarize trends concisely and guide users to refine their search.
-
-        //         **Behavior Guidelines**:
-        //         - Maintain a positive, supportive tone, making the job search feel like an adventure.
-        //         - Confirm job details before emailing (e.g., "Found 15 jobs for Senior Frontend in San Francisco. Shall I send them to your email?").
-        //         - For insights, focus on recent trends (e.g., "AI Engineer roles are up 347%").
-        //         - Avoid specific company names or real-time listings beyond API results.
-
-        //         **Example Flow**:
-        //         - User: "Find me senior frontend jobs in San Francisco, prioritize recent postings"
-        //         - You: "Found 15 jobs! Here are the top 3: [titles]. Want more details on any or shall I send all to your email?"
-        //         - User: "Tell me more about the Meta position"
-        //         - You: "[Detailed breakdown]. Anything else?"
-        //         - User: "Send me all results via email"
-        //         - You: "Sent 15 jobs to your email!"
-        //         - User: "What's hot in AI jobs right now?"
-        //         - You: "I'm seeing a 347% increase in AI Engineer roles. Here are 3 companies hiring today..." `
-        //       }
-        //     ],
-        //     tools: [
-        //       {
-        //         type: "function",
-        //         function: {
-        //           name: "job-search",
-        //           description: "Search for job opportunities based on user preferences",
-        //           parameters: {
-        //             type: "object",
-        //             properties: {
-        //               category: { type: "string", description: "Job category or role type" },
-        //               level: { type: "string", description: "Experience level (Entry Level, Mid Level, Senior Level)" },
-        //               location: { type: "string", description: "Job location or 'Remote'" },
-        //               company: { type: "string", description: "Specific company name (optional)" }
-        //             },
-        //             required: ["category"]
-        //           }
-        //         }
-        //       },
-        //       {
-        //         type: "function",
-        //         function: {
-        //           name: "send-jobs-email",
-        //           description: "Send job results to user's email",
-        //           parameters: {
-        //             type: "object",
-        //             properties: {
-        //               jobs: { type: "array", description: "Array of job objects" },
-        //               userEmail: { type: "string", description: "User's email address" }
-        //             },
-        //             required: ["jobs", "userEmail"]
-        //           }
-        //         }
-        //       },
-        //       {
-        //         type: "function",
-        //         function: {
-        //           name: "market-insights",
-        //           description: "Provide job market trends using Serper API",
-        //           parameters: {
-        //             type: "object",
-        //             properties: {
-        //               query: { type: "string", description: "Job category or role to analyze trends for" }
-        //             },
-        //             required: ["query"]
-        //           }
-        //         }
-        //       }
-        //     ],
-        //     maxTokens: 100,
-        //     temperature: 0.3
-        //   },
-        //   voice: {
-        //     provider: "vapi",
-        //     voiceId: "Harry"
-        //   },
-        //   transcriber: {
-        //     provider: "google",
-        //     model: "gemini-2.0-flash",
-        //     language: "English"
-        //   },
-        //   firstMessage: `Hey there, ${user.name}! I'm Career Scout, here to help you find your perfect job or explore market trends. What's on your mind today?`
-        // };
+        // Import the tools directly from the tools.js file
+        const { tools } = await import('@/app/utils/tools.js');
+        
         const assistant = {
           model: {
             provider: "openai",
@@ -467,36 +778,31 @@ const CareerScout = () => {
 - Celebrate wins and provide comfort during tough searches
 - Make complex job market data feel accessible and actionable
 
-**Core Capabilities via jobAgentMCP Tool**:
+**Core Capabilities**:
 
-🔍 **Smart Job Discovery** (searchJobs)
+🔍 **Smart Job Discovery** (search-jobs)
 - Transform natural language into targeted job searches
 - Understand context like "remote-friendly", "startup culture", "good benefits"
 - Handle complex queries: "senior React roles in Seattle that offer equity"
 - Remember search context for follow-up questions
 
-📊 **Deep Job Analysis** (jobDetails) 
+📊 **Deep Job Analysis** (job-details) 
 - Extract key insights from job descriptions
 - Identify must-have vs nice-to-have requirements
 - Spot red flags or golden opportunities
 - Provide application strategy tips
 
-💰 **Salary Intelligence** (estimatedSalary & companySalary)
+💰 **Salary Intelligence** (estimated-salary & company-job-salary)
 - Research market rates with location/experience context
 - Compare company-specific compensation
 - Provide negotiation insights and leverage points
 - Factor in total compensation, not just base salary
 
-📈 **Market Intelligence** (marketInsight)
+📈 **Market Intelligence** (market-insight-tool)
 - Identify trending skills and emerging opportunities
 - Analyze industry growth patterns and job demand
 - Provide strategic career guidance
 - Predict future market shifts
-
-📧 **Personalized Job Delivery** (send-jobs-email)
-- Curate and deliver tailored job recommendations
-- Include personalized notes and application tips
-- Format for easy review and action
 
 **Conversation Flow Mastery**:
 
@@ -529,7 +835,6 @@ const CareerScout = () => {
 **Conversation Rules**:
 - One focused question per response - don't overwhelm
 - Use specific numbers and company names when available
-- Confirm before sending emails: "Found 8 perfect matches - want me to send the top ones to your email?"
 - Reference previous context naturally: "Based on your React search..." 
 - End with clear, actionable next steps
 - If searches return no results, pivot to alternatives or broader searches
@@ -546,14 +851,257 @@ Remember: You're not just providing data - you're being a strategic career partn
             ],
             tools: [
               {
-                type: "mcp",
-                name: "jobAgentMCP",
+                type: "function",
+                messages: [
+                  {
+                    type: "request-start",
+                    content: "Searching for jobs that match your criteria. This will just take a moment..."
+                  },
+                  {
+                    type: "request-complete",
+                    content: "Here's what I found in the job market"
+                  },
+                  {
+                    type: "request-failed",
+                    content: "I'm having trouble searching for jobs right now. Let's try something else."
+                  },
+                  {
+                    type: "request-response-delayed",
+                    content: "Still searching through job listings. The job market is quite active today!",
+                    timingMilliseconds: 3000
+                  }
+                ],
+                function: {
+                  name: "search-jobs",
+                  description: "Search for jobs based on keywords, location, and filters",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      query: {
+                        type: "string",
+                        description: "Job search query (e.g., 'developer jobs in Chicago')"
+                      },
+                      page: {
+                        type: "number",
+                        description: "Page number for pagination (default: 1)",
+                        default: 1
+                      },
+                      num_pages: {
+                        type: "number",
+                        description: "Number of pages to retrieve (default: 1)",
+                        default: 1
+                      },
+                      country: {
+                        type: "string",
+                        description: "Country code (e.g., 'us', 'uk', 'ca')",
+                        default: "us"
+                      },
+                      date_posted: {
+                        type: "string",
+                        description: "Filter by date posted (all, today, 3days, week, month)",
+                        enum: ["all", "today", "3days", "week", "month"],
+                        default: "all"
+                      }
+                    },
+                    required: ["query"]
+                  }
+                },
+                async: false,
                 server: {
-                  url: "https://career-scout.vercel.app/api/mcp/actions"
+                  url: "/api/mcp/actions"
+                }
+              },
+              {
+                type: "function",
+                messages: [
+                  {
+                    type: "request-start",
+                    content: "Let me get the details about this job for you..."
+                  },
+                  {
+                    type: "request-complete",
+                    content: "Here's what I found about this position"
+                  },
+                  {
+                    type: "request-failed",
+                    content: "I couldn't retrieve the job details at the moment. Let's try something else."
+                  }
+                ],
+                function: {
+                  name: "job-details",
+                  description: "Get detailed information about a specific job posting",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      job_id: {
+                        type: "string",
+                        description: "The unique job ID from job search results"
+                      }
+                    },
+                    required: ["job_id"]
+                  }
+                },
+                async: false,
+                server: {
+                  url: "/api/mcp/actions"
+                }
+              },
+              {
+                type: "function",
+                messages: [
+                  {
+                    type: "request-start",
+                    content: "Let me research salary estimates for this role and location..."
+                  },
+                  {
+                    type: "request-complete",
+                    content: "I found some salary information for you"
+                  },
+                  {
+                    type: "request-failed",
+                    content: "I couldn't retrieve salary information right now. Let's try something else."
+                  }
+                ],
+                function: {
+                  name: "estimated-salary",
+                  description: "Get estimated salary range for a job title and location",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      job_title: {
+                        type: "string",
+                        description: "Job title (e.g., 'Software Engineer', 'Data Scientist')"
+                      },
+                      location: {
+                        type: "string",
+                        description: "Location (e.g., 'New York, NY', 'San Francisco, CA')"
+                      },
+                      location_type: {
+                        type: "string",
+                        description: "Type of location",
+                        enum: ["city", "state", "country"],
+                        default: "city"
+                      },
+                      years_of_experience: {
+                        type: "number",
+                        description: "Years of experience (0-20+)",
+                        minimum: 0,
+                        maximum: 20
+                      }
+                    },
+                    required: ["job_title", "location"]
+                  }
+                },
+                async: false,
+                server: {
+                  url: "/api/mcp/actions"
+                }
+              },
+              {
+                type: "function",
+                messages: [
+                  {
+                    type: "request-start",
+                    content: "Checking salary information for this company and role..."
+                  },
+                  {
+                    type: "request-complete",
+                    content: "Here's what I found about compensation at this company"
+                  },
+                  {
+                    type: "request-failed",
+                    content: "I couldn't find company-specific salary data right now. Let's try something else."
+                  }
+                ],
+                function: {
+                  name: "company-job-salary",
+                  description: "Get salary information for a specific role at a company",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      company: {
+                        type: "string",
+                        description: "Company name (e.g., 'Google', 'Microsoft')"
+                      },
+                      job_title: {
+                        type: "string",
+                        description: "Job title at the company"
+                      },
+                      location_type: {
+                        type: "string",
+                        description: "Type of location",
+                        enum: ["city", "state", "country"],
+                        default: "city"
+                      },
+                      years_of_experience: {
+                        type: "number",
+                        description: "Years of experience (0-20+)",
+                        minimum: 0,
+                        maximum: 20
+                      }
+                    },
+                    required: ["company", "job_title"]
+                  }
+                },
+                async: false,
+                server: {
+                  url: "/api/mcp/actions"
+                }
+              },
+              {
+                type: "function",
+                messages: [
+                  {
+                    type: "request-start",
+                    content: "Researching market trends and insights for you..."
+                  },
+                  {
+                    type: "request-complete",
+                    content: "Here are the market insights I found"
+                  },
+                  {
+                    type: "request-failed",
+                    content: "I couldn't retrieve market insights at the moment. Let's try something else."
+                  },
+                  {
+                    type: "request-response-delayed",
+                    content: "Still analyzing market trends for you. There's a lot of interesting data to process!",
+                    timingMilliseconds: 3000
+                  }
+                ],
+                function: {
+                  name: "market-insight-tool",
+                  description: "Search for market insights and industry trends using web search",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      q: {
+                        type: "string",
+                        description: "Search query for market insights (e.g., 'remote hiring trends for designers')"
+                      },
+                      gl: {
+                        type: "string",
+                        description: "Country code for search results (e.g., 'us', 'uk')",
+                        default: "us"
+                      },
+                      num: {
+                        type: "number",
+                        description: "Number of search results to return",
+                        default: 10,
+                        minimum: 1,
+                        maximum: 100
+                      }
+                    },
+                    required: ["q"]
+                  }
+                },
+                async: false,
+                server: {
+                  url: "/api/mcp/actions"
                 }
               }
             ],
-            maxTokens: 150,
+            maxTokens: 300,
             temperature: 0.3
           },
           voice: {
