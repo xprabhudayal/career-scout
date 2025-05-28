@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Vapi from '@vapi-ai/web';
-import axios from 'axios';
+// import axios from 'axios';
 import Navbar from '@/components/Navbar';
 import { AuthenticationScreen } from '@/components/AuthenticationScreen';
 import { supabase } from '@/lib/supabaseClient';
@@ -219,7 +219,7 @@ const CareerScout = () => {
 
   const addMessage = (role, content) => {
     const message = {
-      id: Date.now(),
+      id: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role,
       content,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -325,7 +325,7 @@ Focus on delivering precise, valuable information to help ${user.name} make info
                   {
                     type: "request-response-delayed",
                     content: "The request is taking longer than expected. Please wait a moment.",
-                    timingMilliseconds: 4000
+                    timingMilliseconds: 9000
                   }
                 ]
               },
@@ -354,7 +354,7 @@ Focus on delivering precise, valuable information to help ${user.name} make info
                 messages: [
                   {
                     type: "request-start",
-                    content: "Please hold on.",
+                    content: "Yeah Sure.",
                     blocking: false
                   },
                   {
@@ -365,13 +365,13 @@ Focus on delivering precise, valuable information to help ${user.name} make info
                   {
                     type: "request-response-delayed",
                     content: "The request is taking longer than expected. Please wait a moment.",
-                    timingMilliseconds: 4000
+                    timingMilliseconds: 9000
                   }
                 ]
               },
 
             ],
-            maxTokens: 800,
+            maxTokens: 400,
             temperature: 0.3
           },
           voice: {
@@ -394,8 +394,10 @@ Focus on delivering precise, valuable information to help ${user.name} make info
             "I'm done",
             "have a good day"
           ],
-          firstMessage: `Hi, ${user.name}!`
-          // firstMessage: `Hi, ${user.name}! I'm your Career Scout. How can I help you today?`
+          firstMessage: `Hi, ${user.name}!`,
+          // firstMessage: `Hi, ${user.name}! I'm your Career Scout. How can I help you today?`,
+          maxDurationSeconds: 900,
+          silenceTimeoutSeconds: 60
         };
 
         await vapiRef.current.start(assistant);
