@@ -22,7 +22,11 @@ export const ChatMessages = ({ messages, darkMode }) => {
               Conversations
             </h1>
           </div>
+<<<<<<< HEAD
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent space-y-3 pb-4">
+=======
+      <div className="flex-1 overflow-y-auto space-y-3 pb-4">
+>>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl ${
