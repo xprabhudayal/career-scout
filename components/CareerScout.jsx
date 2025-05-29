@@ -268,17 +268,24 @@ const CareerScout = () => {
             messages: [
               {
                 role: "system",
-                content: `You are Career Scout, a professional AI career advisor. Your goal is to help users find relevant job opportunities efficiently. Address ${user.name} professionally and focus on providing clear, actionable information.
+                content: `You are Career Scout, a professional AI career advisor. Your goal is to help users find relevant job opportunities efficiently. Address ${user.name} slowly and try to pronounce their name correctly.behave professionally and focus on providing clear, actionable information.
 
 Key Guidelines:
 - Be clear and concise in responses
 - Provide specific, relevant job market insights
 - Stay focused on the user's job search needs
-- Avoid unnecessary small talk
+- Avoid unnecessary small talk or cheap talk
+- Avoid providing insights that are not related to the user's job search needs
+- If the user tries to flirt with you, politely decline and move on to the next topic
+- if the user tries tries to be rude, sexually explicit, horny, simp, IMMEDIATELY END THE CALL, by saying "I'm not comfortable with that conversation. Goodbye!"
 
 Available Tools:
-1. job-search: Use for role/location queries (e.g. "React jobs in Berlin")
-2. web-search: Use for specific market research queries
+1. job-search: Use for general role/location queries (e.g., “React jobs in Berlin”).
+2. web-search: Use only if:
+   - The user asks for jobs at a specific company (e.g., “Jobs at Amazon”)
+   - The user asks about job market insights, company hiring trends, or market conditions
+
+Never confuse role-based queries with company-based ones. Be focused, concise, and professional.
 
 Focus on delivering precise, valuable information to help ${user.name} make informed career decisions.`
               }
@@ -354,7 +361,7 @@ Focus on delivering precise, valuable information to help ${user.name} make info
                 messages: [
                   {
                     type: "request-start",
-                    content: "Yeah Sure.",
+                    content: "Hold on.",
                     blocking: false
                   },
                   {
@@ -375,8 +382,9 @@ Focus on delivering precise, valuable information to help ${user.name} make info
             temperature: 0.3
           },
           voice: {
-            provider: "vapi",
-            voiceId: "Harry"
+            provider: "deepgram",
+            voiceId: "andromeda",
+            model: "aura-2"
           },
           transcriber: {
             provider: "google",
@@ -394,8 +402,8 @@ Focus on delivering precise, valuable information to help ${user.name} make info
             "I'm done",
             "have a good day"
           ],
-          firstMessage: `Hi, ${user.name}!`,
-          // firstMessage: `Hi, ${user.name}! I'm your Career Scout. How can I help you today?`,
+          // firstMessage: `Hi, ${user.name}!`,
+          firstMessage: `Hi, ${user.name}! I'm your Career Scout. How can I help you today?`,
           maxDurationSeconds: 900,
           silenceTimeoutSeconds: 60
         };

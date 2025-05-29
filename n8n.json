@@ -1,0 +1,230 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-preview-05-20",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        340
+      ],
+      "id": "5ce62232-6aee-4fd9-9362-5d4596aacd9e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "e0Un7WDWsBVxvldU",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "notes": "AIzaSyBHrF8Y7LTEmLJ7DhI8reM5jUJiAPawP1s"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a smart job assistant.\n\nIf the user query mentions a specific company (e.g., \"Jobs at Google\"), or asks for market insights (e.g., \"What's trending in AI hiring?\"), use the `web-search` tool with:\n{{ $json.body.message.toolCalls[0].function.arguments.search_query }}\n\nOtherwise, use the job-search tool. \nInfer the ISO 2-letter country code from:\n{{ $json.body.message.toolCalls[0].function.arguments.area }}\n(e.g., \"Bangalore\" → IN). If unclear, default to \"US\".\n\nFetch jobs for:\n{{ $json.body.message.toolCalls[0].function.arguments.role }}\n\nRespond like this:\n[Company]; [Role]; [City/Country]\n\nInclude:\n- Number of jobs found\n- Highlight remote, leadership, or AI roles\n- Prioritize recent or well-known companies\n\nIf no jobs found, say so and offer to expand search.\n\nBe concise. No small talk or raw JSON. Use percentages, numbers, and complete sentences.\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5bae9bb3-4b6b-4cc1-92be-f3fb7e8fbb77",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "toolDescription": "find jobs",
+        "url": "https://jsearch.p.rapidapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Value', ``, 'string') }}"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            },
+            {
+              "name": "num_pages",
+              "value": "1"
+            },
+            {
+              "name": "country",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters3_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-host",
+              "value": "jsearch.p.rapidapi.com"
+            },
+            {
+              "name": "x-rapidapi-key",
+              "value": "10d7505033msha6af41aa6addff6p15c799jsn107705d3c2fd"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        280
+      ],
+      "id": "3a828052-a89d-4fda-bc91-8b13c5b32fff",
+      "name": "job-search1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n    \"results\": [\n        {\n            \"toolCallId\": \"{{ $('Webhook').item.json.body.message.toolCalls[0].id }}\",\n            \"result\": {{ JSON.stringify($json.output) }}\n        }\n    ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        80
+      ],
+      "id": "ea3a657f-fab7-4fb2-80b0-5372b0220715",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "api",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        80
+      ],
+      "id": "5fbef964-26e3-4ab1-9dca-a7a3aaba3d13",
+      "name": "Webhook",
+      "webhookId": "e297d7a5-cf4d-4edb-a353-19ef5af087fa"
+    },
+    {
+      "parameters": {
+        "toolDescription": "searches web for user query",
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "9ac01969b0c2f4b90e5a2058cde95d5e7334ce2e"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        300
+      ],
+      "id": "5481a8a4-f365-4bd8-a8d6-b572177b5519",
+      "name": "web-search"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "job-search1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web-search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "81a10e86-3f3f-4d4d-96db-af6582409475",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d925a10ac6a9d2b2a5aa913c786fb09c994a36ac7d3b7f3f592ce59369d1beaa"
+  },
+  "id": "uRihj7SonKcdyw6p",
+  "tags": []
+}
