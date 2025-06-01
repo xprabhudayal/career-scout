@@ -2,11 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Vapi from '@vapi-ai/web';
-<<<<<<< HEAD
 // import axios from 'axios';
-=======
-import axios from 'axios';
->>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
 import Navbar from '@/components/Navbar';
 import { AuthenticationScreen } from '@/components/AuthenticationScreen';
 import { supabase } from '@/lib/supabaseClient';
@@ -190,7 +186,6 @@ const CareerScout = () => {
         }
 
         if (message.type === 'function-call') {
-<<<<<<< HEAD
           // Show a loading message for tool calls
           addMessage('system', `Processing ${message.function_call?.name}...`);
 
@@ -198,27 +193,15 @@ const CareerScout = () => {
             const args = JSON.parse(message.function_call.arguments);
             await handleJobSearch(args);
           } else if (message.function_call?.name === 'market-insight') {
-=======
-          if (message.function_call?.name === 'job-search') {
-            const args = JSON.parse(message.function_call.arguments);
-            await handleJobSearch(args);
-          } else if (message.function_call?.name === 'send-jobs-email') {
-            const args = JSON.parse(message.function_call.arguments);
-            await handleSendJobsEmail(args);
-          } else if (message.function_call?.name === 'market-insights') {
->>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
             const args = JSON.parse(message.function_call.arguments);
             await handleMarketInsights(args);
           }
         }
-<<<<<<< HEAD
 
         // Handle tool results
         if (message.type === 'function-execution-result') {
           addMessage('tool', message.result || 'No results found.');
         }
-=======
->>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
       });
 
       vapiRef.current.on('error', (error) => {
@@ -236,11 +219,7 @@ const CareerScout = () => {
 
   const addMessage = (role, content) => {
     const message = {
-<<<<<<< HEAD
       id: `${role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-=======
-      id: Date.now(),
->>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
       role,
       content,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -248,7 +227,6 @@ const CareerScout = () => {
     setMessages(prev => [...prev, message]);
   };
 
-<<<<<<< HEAD
   // Handler for job search tool
   const handleJobSearch = async (args) => {
     try {
@@ -259,68 +237,11 @@ const CareerScout = () => {
     } catch (error) {
       console.error('Error handling job search:', error);
       addMessage('system', 'Error retrieving job data. Please try again.');
-=======
-  const handleJobSearch = async (args) => {
-    setIsLoading(true);
-    try {
-      // Try JSearch API first
-      let response;
-      try {
-        const queryParams = new URLSearchParams();
-        if (args.category) queryParams.append('query', `${args.category}${args.location ? ` in ${args.location}` : ''}`);
-        if (args.level) queryParams.append('level', args.level);
-
-        response = await axios.get(
-          `https://zylalabs.com/api/2526/jsearch+api/2516/search?${queryParams.toString()}`,
-          {
-            headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_JSEARCH_API_KEY}` },
-            timeout: 10000
-          }
-        );
-
-        const jobs = cleanJobData(response.data.data || [], 'jsearch');
-        if (jobs.length > 0) {
-          addMessage('system', `Found ${jobs.length} jobs! Here are the top 3: ${jobs.slice(0, 3).map(j => j.title).join(', ')}...`);
-          return jobs;
-        }
-      } catch (error) {
-        console.error('JSearch API error:', error);
-        addMessage('system', 'JSearch API limit reached or unavailable, trying backup...');
-      }
-
-      // Fallback to Adzuna API
-      const queryParams = new URLSearchParams();
-      if (args.category) queryParams.append('what', args.category);
-      if (args.location) queryParams.append('where', args.location);
-      if (args.level) queryParams.append('contract_type', args.level.toLowerCase());
-      queryParams.append('results_per_page', '20');
-      queryParams.append('app_id', process.env.NEXT_PUBLIC_ADZUNA_APP_ID);
-      queryParams.append('app_key', process.env.NEXT_PUBLIC_ADZUNA_APP_KEY);
-
-      response = await axios.get(
-        `https://api.adzuna.com/v1/api/jobs/us/search/1?${queryParams.toString()}`,
-        { timeout: 10000 }
-      );
-
-      const jobs = cleanJobData(response.data.results || [], 'adzuna');
-      if (jobs.length > 0) {
-        addMessage('system', `Found ${jobs.length} jobs! Here are the top 3: ${jobs.slice(0, 3).map(j => j.title).join(', ')}...`);
-        return jobs;
-      } else {
-        addMessage('system', 'No jobs found matching the criteria.');
-        return [];
-      }
-    } catch (error) {
-      console.error('Job search error:', error);
-      addMessage('system', 'Error searching for jobs. Please try again.');
-      return [];
->>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
     } finally {
       setIsLoading(false);
     }
   };
 
-<<<<<<< HEAD
   // Handler for market insights tool
   const handleMarketInsights = async (args) => {
     try {
@@ -331,72 +252,6 @@ const CareerScout = () => {
     } catch (error) {
       console.error('Error handling market insights:', error);
       addMessage('system', 'Error retrieving market data. Please try again.');
-=======
-  const handleSendJobsEmail = async ({ jobs, userEmail }) => {
-    setIsLoading(true);
-    try {
-      const email = userEmail || user.email;
-      if (!email) {
-        addMessage('system', 'No email address found. Please provide an email.');
-        return;
-      }
-
-      const response = await axios.post(
-        'https://api.resend.com/emails',
-        {
-          from: 'CareerScout <jobs@yourapp.com>',
-          to: email,
-          subject: `Found ${jobs.length} jobs for you!`,
-          html: generateJobEmailTemplate(jobs)
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
-
-      addMessage('system', `Sent ${jobs.length} jobs to ${email}!`);
-    } catch (error) {
-      console.error('Email send error:', error);
-      addMessage('system', 'Failed to send email. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleMarketInsights = async ({ query }) => {
-    setIsLoading(true);
-    try {
-      const response = await axios.post(
-        'https://serper.dev/api/v1/search',
-        { q: `${query} job market trends` },
-        {
-          headers: {
-            'X-API-KEY': process.env.NEXT_PUBLIC_SERPER_API_KEY,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
-
-      const insights = response.data.organic?.slice(0, 3).map(item => ({
-        title: item.title,
-        snippet: item.snippet,
-        link: item.link
-      })) || [];
-
-      if (insights.length > 0) {
-        addMessage('system', `Current trends for ${query}: ${insights[0].snippet}...`);
-      } else {
-        addMessage('system', `No market insights found for ${query}. Try a different query.`);
-      }
-    } catch (error) {
-      console.error('Market insights error:', error);
-      addMessage('system', 'Error fetching market insights. Please try again.');
->>>>>>> 12484e2b1131c5face84f9c69fe757f56fda635b
     } finally {
       setIsLoading(false);
     }
@@ -405,6 +260,7 @@ const CareerScout = () => {
   const startCall = async () => {
     if (vapiRef.current && !isCallActive) {
       try {
+
         const assistant = {
           model: {
             provider: "openai",
@@ -459,7 +315,7 @@ Focus on delivering precise, valuable information to help ${user.name} make info
                   }
                 },
                 server: {
-                  url: "https://n8n-rd2y.onrender.com/webhook/api",
+                  url: process.env.NEXT_PUBLIC_N8N_URL,
                   headers: {}
                 },
                 messages: [
@@ -499,7 +355,7 @@ Focus on delivering precise, valuable information to help ${user.name} make info
                   }
                 },
                 server: {
-                  url: "https://n8n-rd2y.onrender.com/webhook/api",
+                  url: process.env.NEXT_PUBLIC_N8N_URL,
                   headers: {}
                 },
                 messages: [
