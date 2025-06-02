@@ -1,95 +1,87 @@
-# Career Scout - AI Job Advisor
+# Career Scout - AI Voice Assistant for Job Search
 
-A Next.js application with Supabase authentication, theme switching, and multi-step onboarding flow powered by GSAP animations.
+Career Scout is an AI-powered voice assistant to help the users in their job hunting. It provides Market Trends, Company Specific Jobs and with Job Search thus providing User first experience. It uses real-time tools and APIs to deliver conversational, actionable insights — all via natural voice interaction.
 
-## Features
+![Career Scout Banner](/public/banner.webp)
 
-- 🔐 Supabase Authentication
-  - Email/password login
-  - Magic link authentication
-  - OAuth providers (Google)
-  
-- 🎭 Theme Switching
-  - Dark/Light mode toggle
-  - Theme preference saved in user preferences
-  
-- 🎬 Multi-Step Onboarding
-  - Smooth GSAP animations
-  - Progress tracking
-  - User preference storage
-  
-- 🔒 Row Level Security
-  - Protected user data
-  - Service role for admin operations
-
-## Setup Instructions
+## 🚀 Getting Started
 
 ### Prerequisites
-
-- Node.js 18+ and npm/yarn
+- Node.js 18+ and npm/yarn/bun
 - Supabase account
+- VAPI API key
 
-### Environment Variables
-
-Create a `.env.local` file with the following variables:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-
-### Supabase Setup
-
-1. Create a new Supabase project
-2. Enable email/password authentication and configure OAuth providers
-3. Run the SQL in `setup/user_preferences.sql` to create the necessary tables and policies
-4. Get your project URL, anon key, and service role key from the Supabase dashboard
-
-### Installation
-
+### Quick Setup
 ```bash
+# Clone repository
+git clone https://github.com/yourusername/career-scout.git
+
 # Install dependencies
 npm install
 
-# Run in development mode
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys
+
+# Run the development server
 npm run dev
 ```
 
-## User Flow
+### Environment Variables
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_VAPI_PUBLIC_KEY=your_vapi_key
+NEXT_PUBLIC_N8N_URL=your_n8n_webhook_url
+```
 
-1. User authenticates via auth page (email/password, magic link, or OAuth)
-2. New users are redirected to the onboarding flow:
-   - Welcome screen
-   - Name input
-   - Role selection
-   - Usage selection
-   - Success screen with auto-redirect
-3. After onboarding, users are redirected to the dashboard
-4. Authentication and onboarding status are checked on each page via middleware
+## 🎯 Features
 
-## Project Structure
+### Voice Interaction with VAPI
+- Natural voice conversations using VAPI's STT(Speech to text) and TTS(reverse of STT)
+- Voice agent with speaking effect
 
-- `/app` - Next.js app router
-  - `/auth` - Authentication pages
-  - `/onboarding` - Onboarding flow
-  - `/dashboard` - Main application
-  
-- `/components` - React components
-  - `AuthenticationScreen.jsx` - Login/signup component
-  - `OnboardingFlow.jsx` - Multi-step onboarding with animations
-  - `Providers.jsx` - Context providers for auth and theme
-  - `ThemeProvider.jsx` - Theme management
+### Job Search Tools
+- For Job Search, it requires 2 parameters from the User, which is then Intelligently parsed via 2 step method. First the Core Model (VAPI) extracts out the content [role(job role), area(location of job)] then it passes these details to n8n Intelligent Engine to proceed forward.
+- It utilizes the Web Information from the search query to find Company-specific job listings.
+- Provides specific Market insights for a particular roles/industries based out of web-search.
 
-- `/lib` - Utility functions
-  - `supabaseClient.js` - Supabase client setup with service role
+### User Experience
+- Multi-step onboarding with GSAP animations
+- Dark/light theme toggle
+- Secure authentication (email, magic link, Google OAuth)
+- Chat history with message types (user, assistant, system, tool)
 
-- `/setup` - Database setup scripts
+## 🔄 How It Works
 
-## Technologies Used
+```mermaid
+flowchart TD
+    A[User] -->|Voice Input| B[VAPI Speech-to-Text]
+    B --> C[AI Assistant]
+    C -->|Function Call| D[Job Search API]
+    C -->|Function Call| E[Market Insights]
+    D --> F[Process Results]
+    E --> F
+    F --> G[AI Response]
+    G --> H[VAPI Text-to-Speech]
+    H -->|Voice Output| A
+    
+    style C fill:#4285F4,stroke:#333,stroke-width:2px
+    style H fill:#34A853,stroke:#333,stroke-width:2px
+    style D fill:#FBBC05,stroke:#333,stroke-width:2px
+    style E fill:#EA4335,stroke:#333,stroke-width:2px
+```
 
-- Next.js 14 with App Router
-- Supabase Authentication
-- GSAP for animations
-- TailwindCSS for styling
-- next-themes for theme management
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15, React, TailwindCSS
+- **Authentication**: Supabase Auth
+- **Database**: Supabase PostgreSQL
+- **Voice**: VAPI (Speech-to-Text, Text-to-Speech)
+- **Animations**: GSAP
+- **API Integration**: N8N for workflow automation
+- **Deployment**: Vercel
+
+## ✨ Thank you for exploring Career Scout! Happy job hunting!
+
+— Prabhudayal Vaishnav
