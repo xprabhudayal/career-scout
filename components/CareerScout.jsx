@@ -392,7 +392,7 @@ Focus on delivering precise, valuable information to help ${user.name} make info
             language: "English"
           },
           endCallFunctionEnabled: true,
-          endCallPhrases: [
+          endCallPhrases: [ 
             "goodbye",
             "Thanks bye",
             "bye bye",
