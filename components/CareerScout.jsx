@@ -138,7 +138,7 @@ const CareerScout = () => {
   // Initialize Vapi
   useEffect(() => {
     if (isAuthenticated && user) {
-      vapiRef.current = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
+      vapiRef.current = new Vapi(process.env.VAPI_PUBLIC_KEY);
 
       vapiRef.current.on('call-start', () => {
         setIsCallActive(true);
@@ -377,9 +377,9 @@ If the user tries to use you for non-career purposes or becomes inappropriate, p
         // - if the user tries tries to be rude, sexually explicit, horny, simp, IMMEDIATELY END THE CALL, by saying "I'm not comfortable with that conversation. Goodbye!"
 
         // Available Tools:
-        // 1. job-search: Use for general role/location queries (e.g., “React jobs in Berlin”).
+        // 1. job-search: Use for general role/location queries (e.g., "React jobs in Berlin").
         // 2. web-search: Use only if:
-        //    - The user asks for jobs at a specific company (e.g., “Jobs at Amazon”)
+        //    - The user asks for jobs at a specific company (e.g., "Jobs at Amazon")
         //    - The user asks about job market insights, company hiring trends, or market conditions
 
         // Never confuse role-based queries with company-based ones. Be focused, concise, and professional.
@@ -412,7 +412,7 @@ If the user tries to use you for non-career purposes or becomes inappropriate, p
         //                   }
         //                 },
         //                 server: {
-        //                   url: process.env.NEXT_PUBLIC_N8N_URL,
+        //                   url: process.env.N8N_URL,
         //                   headers: {}
         //                 },
         //                 messages: [
@@ -452,7 +452,7 @@ If the user tries to use you for non-career purposes or becomes inappropriate, p
         //                   }
         //                 },
         //                 server: {
-        //                   url: process.env.NEXT_PUBLIC_N8N_URL,
+        //                   url: process.env.N8N_URL,
         //                   headers: {}
         //                 },
         //                 messages: [

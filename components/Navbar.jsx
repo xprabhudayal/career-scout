@@ -22,7 +22,7 @@ const Navbar = ({ darkMode, setDarkMode, user, logout }) => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <FeedbackFish projectId={process.env.NEXT_PUBLIC_FEEDBACK_FISH_PROJECT} userId={user.email} className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <FeedbackFish projectId={process.env.FEEDBACK_FISH_PROJECT} userId={user.email} className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         <button className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${darkMode
                             ? 'text-gray-300 hover:bg-gray-700'
                             : 'text-gray-600 hover:bg-gray-100'
