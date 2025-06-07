@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Telescope, AlertTriangle, ArrowLeft } from 'lucide-react';
 
-export default function AuthError() {
+// Create a separate component that uses useSearchParams
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [errorDetails, setErrorDetails] = useState({
@@ -80,5 +81,14 @@ export default function AuthError() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component that wraps the content in Suspense
+export default function AuthError() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">Loading...</div>}>
+      <AuthErrorContent />
+    </Suspense>
   );
 } 
